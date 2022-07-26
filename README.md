@@ -5,7 +5,7 @@
 ## Setting up
 
 ### Tests
-1. Python 3.7 with `pipenv`
+1. Python 3.10 with `pipenv`
 
 To install Python dependencies for this project only it suffices to call:
 ```bash
@@ -13,18 +13,8 @@ pipenv install
 ```
 
 ### Building simulation
-Please refer to the main project readme for details. These are required:
-1. CMake 3.13
-2. GNU Makefile
-3. GCC
-
-Quick build commands reference:
-```bash
-mkdir cmake-build-debug
-cd cmake-build-debug
-cmake ..
-make -j4
-```
+Please refer to the main project readme for details:
+- https://github.com/Nitrokey/nitrokey-webcrypt-rust#running-udp-simulation
 
 ## Running tests
 
@@ -33,13 +23,9 @@ It is possible to test the implementation using simulation without the actual ha
 
 
 #### Running
-To run simulation:
-```bash
-cd cmake-build-debug
-# to clean state
-rm *.bin
-./nitrokey-fido2-simulation
-```
+Please refer to the main project readme for details regarding how to run the UDP simulation:
+- https://github.com/Nitrokey/nitrokey-webcrypt-rust#running-udp-simulation
+
 
 Running actual tests:
 ```bash
@@ -53,10 +39,13 @@ pipenv run pytest test_comm.py  -svx --log-cli-level=DEBUG
 
 ### Hardware
 
-Similarly to the simulation case, but with `--hardware` switch.
+Similarly to the simulation case, but with `--hardware` switch and additional environment variables:
+- `env REAL_HARDWARE=1 TRANSPORT=FIDO2` for FIDO2 transport
+- `env REAL_HARDWARE=1 TRANSPORT=U2F` for U2F transport
 
+E.g. for the U2F transport:
 ```bash
-pipenv run pytest --hardware test_comm.py
+env REAL_HARDWARE=1 TRANSPORT=U2F pipenv run pytest --hardware test_comm.py
 ```
 
 ## CI
