@@ -1,0 +1,22 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+pytest = "*"
+pycryptodome = "*"
+cryptography = "*"
+pynitrokey = { version = "<=0.4.0" }
+ecdsa = "*"
+secp256k1 = "*"
+tinyec = "*"
+cbor = "*"
+fido2 = "<=0.8"
+pytest-repeat = "*"
+fastecdsa = "*"
+
+[requires]
+python_version = "3.8"
