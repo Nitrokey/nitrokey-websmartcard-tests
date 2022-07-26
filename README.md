@@ -50,8 +50,8 @@ env REAL_HARDWARE=1 TRANSPORT=U2F pipenv run pytest --hardware test_comm.py
 
 ## CI
 For the CI use a Makefile is prepared, which automatically setups and runs both the simulation and tests.
+The UDP simulation has to be executed before that.
 Execution:
 ```bash
-# while being in the tests directory: nitrokey-fido2-firmware/tests/webcrypt-tests
-make -j2
+make
 ```
