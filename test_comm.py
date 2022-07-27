@@ -484,11 +484,6 @@ def test_login_wrong_attempt_counter(nkfido2_client: NKFido2Client):
     helper_login(nkfido2_client, Constants.PIN)
     send_and_receive(nkfido2_client, Command.LOGOUT)
 
-    # read_data = send_and_receive_cbor(nkfido2_client, Command.PIN_ATTEMPTS)
-    # assert check_keys_in_received_dictionary(read_data, ["PIN_ATTEMPTS"])
-    # log.debug(read_data)
-    # assert int.from_bytes(read_data["PIN_ATTEMPTS"], 'little', signed=False) == 8
-
     data = {"PIN": Constants.PIN_BAD}
     for i in range(Constants.PIN_ATTEMPTS_COUNTER_DEFAULT_VALUE):
         send_and_receive(nkfido2_client, Command.LOGIN, data, expected_error=ExecError.INVALID_PIN)
