@@ -519,24 +519,65 @@ def test_login2(nkfido2_client: NKFido2Client):
 def test_logout(nkfido2_client: NKFido2Client):
     # check first if we are logged in
     helper_login(nkfido2_client, Constants.PIN)
+    configuration_data = send_and_receive_cbor(nkfido2_client, Command.GET_CONFIGURATION)
+    send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY)
     send_and_receive(nkfido2_client, Command.LOGOUT)
+
     # here test some TP requiring operation
+    commands_requiring_session = [
+        (Command.SET_CONFIGURATION, configuration_data),
+        (Command.GET_CONFIGURATION, None),
+        (Command.INITIALIZE_SEED, None),
+        (Command.RESTORE_FROM_SEED, {"MASTER": b"1" * 32, "SALT": b"2" * 8}),
+        (Command.GENERATE_KEY, None),
+        (Command.SIGN, {"HASH": b"placeholder", "KEYHANDLE": b"placeholder"}),
+        (Command.DECRYPT,
+         {"DATA": b"placeholder", "KEYHANDLE": b"placeholder", "HMAC": b"placeholder", "ECCEKEY": b"placeholder"}),
+
+        (Command.GENERATE_KEY_FROM_DATA, {"HASH": b"placeholder"}),
+        (Command.GENERATE_RESIDENT_KEY, None),
+        (Command.READ_RESIDENT_KEY_PUBLIC, {"KEYHANDLE": b"placeholder"}),
+        (Command.DISCOVER_RESIDENT_KEYS, None),  # TODO correct input data once this command is implemented
+        (Command.WRITE_RESIDENT_KEY, {"RAW_KEY_DATA": b"placeholder"}),
+    ]
+    for cmd, data in commands_requiring_session:
+        send_and_receive(nkfido2_client, cmd, data=data, expected_error=ExecError.REQ_AUTH)
 
 
 def test_factory_reset(nkfido2_client: NKFido2Client):
-    # A. Session should be closed if open
-    # B. All user data should be cleared
-    # C. PIN should be removed
-    # 1. login (get TP)
-    # 2. generate key from data
-    # 3. create some RKs
+    # Setup. Make sure we are logged in, and we can call commands normally
+    helper_login(nkfido2_client, Constants.PIN)
+    send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY)
+    read_data_initial = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, {"HASH": b"test"})
+    rk_kh_init = send_and_receive_cbor(nkfido2_client, Command.GENERATE_RESIDENT_KEY)["KEYHANDLE"]
+    send_and_receive_cbor(nkfido2_client, Command.READ_RESIDENT_KEY_PUBLIC, {"KEYHANDLE": rk_kh_init})
+
+    # Execute operation to be tested
     send_and_receive(nkfido2_client, Command.FACTORY_RESET)
-    # here test some TP requiring operation -> should fail
-    # 1. PIN should not be set, and all operations therefore should be denied
-    # 2. Once PIN is set, try to use old TP
-    #   here test some TP requiring operation -> should fail
-    # 3. here test user data retention (non- and RK-based credentials)
-    # 4. check for the created RKs and generated key from data
+
+    # A. Session should be closed if open
+    send_and_receive(nkfido2_client, Command.GENERATE_KEY, expected_error=ExecError.REQ_AUTH)
+
+    # B. PIN should be removed. Change PIN should fail.
+    data = {
+        "PIN": Constants.PIN_BAD,
+        "NEWPIN": Constants.PIN_BAD,
+    }
+    send_and_receive(nkfido2_client, Command.CHANGE_PIN, data, expected_error=ExecError.ERR_NOT_ALLOWED)
+
+    send_and_receive(nkfido2_client, Command.SET_PIN, dict(PIN=Constants.PIN))
+    helper_login(nkfido2_client, Constants.PIN)
+    # C. All user data should be cleared
+    # C1. Derived keys should be different from the same hash
+    data = {"HASH": b"test"}
+    read_data_after_reset = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data)
+    assert read_data_after_reset["PUBKEY"] != read_data_initial["PUBKEY"]
+
+    # C2. RK should not be available by keyhandle, or listed for the given origin
+    # TODO to change ERR_MEMORY_FULL with ERR_FAILED_LOADING_DATA
+    rk_pb = send_and_receive(nkfido2_client, Command.READ_RESIDENT_KEY_PUBLIC, {"KEYHANDLE": rk_kh_init},
+                             expected_error=ExecError.ERR_MEMORY_FULL)
+
 
 class UnreachableException(Exception):
     pass
@@ -553,8 +594,9 @@ def test_pin_set_wrong_length(nkfido2_client: NKFido2Client):
 def test_pin_set(nkfido2_client: NKFido2Client):
     # condition: unset PIN (e.g. after a factory reset)
     # should fail due to not set PIN after the factory reset
-    # data = {"PIN": Constants.PIN}
-    # read_data = send_and_receive_cbor(nkfido2_client, Command.LOGIN, data)
+    send_and_receive(nkfido2_client, Command.FACTORY_RESET)
+    data = {"PIN": Constants.PIN}
+    send_and_receive(nkfido2_client, Command.LOGIN, data, expected_error=ExecError.ERR_NOT_ALLOWED)
     data = {"PIN": Constants.PIN}
     send_and_receive(nkfido2_client, Command.SET_PIN, data)
 
