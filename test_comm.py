@@ -297,6 +297,7 @@ def test_decrypt(nkfido2_client, send_correct_hmac):
     h.update(ciphertext)
     h.update(ephem_pub_bin)
     if send_correct_hmac:
+        # skip one of the parameters while calculating digest to get invalid HMAC (test purposes only)
         h.update(data_len)
     h.update(STATE["KEYHANDLE"])
     hmac_res = h.digest()
