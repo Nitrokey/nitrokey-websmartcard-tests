@@ -521,7 +521,7 @@ def test_logout(nkfido2_client: NKFido2Client):
     # here test some TP requiring operation
     commands_requiring_session = [
         (Command.SET_CONFIGURATION, configuration_data),
-        (Command.GET_CONFIGURATION, None),
+        # (Command.GET_CONFIGURATION, None),
         (Command.INITIALIZE_SEED, None),
         (Command.RESTORE_FROM_SEED, {"MASTER": b"1" * 32, "SALT": b"2" * 8}),
         (Command.GENERATE_KEY, None),
