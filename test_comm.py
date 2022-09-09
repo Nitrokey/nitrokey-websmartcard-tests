@@ -173,7 +173,7 @@ def test_generate(nkfido2_client):
 
 
 def test_generate_from_data(nkfido2_client):
-    data = {"HASH": b"test"}
+    data = {"HASH": sha256(b"test").digest()}
     read_data = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data)
     helper_view_data(read_data)
     assert isinstance(read_data, dict)
@@ -181,17 +181,16 @@ def test_generate_from_data(nkfido2_client):
     helper_update_state(read_data)
 
     # try again with the same data - the public key should remain the same
-    data = {"HASH": b"test"}
     read_data = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data)
     assert read_data["PUBKEY"] == STATE["PUBKEY"]
 
     # try again with the different data - the public key should change
-    data = {"HASH": b"test2"}
+    data = {"HASH": sha256(b"test2").digest()}
     read_data = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data)
     assert read_data["PUBKEY"] != STATE["PUBKEY"]
 
     # try again with the same data as initially sent - the public key should remain the same
-    data = {"HASH": b"test"}
+    data = {"HASH": sha256(b"test").digest()}
     read_data = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data)
     assert read_data["PUBKEY"] == STATE["PUBKEY"]
 
@@ -297,6 +296,7 @@ def test_decrypt(nkfido2_client, send_correct_hmac):
     h.update(ciphertext)
     h.update(ephem_pub_bin)
     if send_correct_hmac:
+        # skip one of the parameters while calculating digest to get invalid HMAC (test purposes only)
         h.update(data_len)
     h.update(STATE["KEYHANDLE"])
     hmac_res = h.digest()
@@ -370,7 +370,7 @@ def test_initialize_simple2(nkfido2_client: NKFido2Client):
 
 
 def test_initialize(nkfido2_client: NKFido2Client):
-    data = {"HASH": b"test"}
+    data = {"HASH": sha256(b"test").digest()}
     key1 = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data)
     key1b = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data)
     assert key1["PUBKEY"].hex() == key1b["PUBKEY"].hex()
@@ -399,7 +399,7 @@ def test_restore_simple(nkfido2_client: NKFido2Client):
 ])
 def test_restore(nkfido2_client: NKFido2Client, test_input):
     master, salt = test_input
-    data_key = {"HASH": b"test"}
+    data_key = {"HASH": sha256(b"test").digest()}
     data = {"MASTER": master, "SALT": salt}
     key1 = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data_key)
     key1b = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data_key)
@@ -521,7 +521,7 @@ def test_logout(nkfido2_client: NKFido2Client):
     # here test some TP requiring operation
     commands_requiring_session = [
         (Command.SET_CONFIGURATION, configuration_data),
-        (Command.GET_CONFIGURATION, None),
+        # (Command.GET_CONFIGURATION, None),
         (Command.INITIALIZE_SEED, None),
         (Command.RESTORE_FROM_SEED, {"MASTER": b"1" * 32, "SALT": b"2" * 8}),
         (Command.GENERATE_KEY, None),
@@ -529,7 +529,7 @@ def test_logout(nkfido2_client: NKFido2Client):
         (Command.DECRYPT,
          {"DATA": b"placeholder", "KEYHANDLE": b"placeholder", "HMAC": b"placeholder", "ECCEKEY": b"placeholder"}),
 
-        (Command.GENERATE_KEY_FROM_DATA, {"HASH": b"placeholder"}),
+        (Command.GENERATE_KEY_FROM_DATA, {"HASH": b"p"*32}),
         (Command.GENERATE_RESIDENT_KEY, None),
         (Command.READ_RESIDENT_KEY_PUBLIC, {"KEYHANDLE": b"placeholder"}),
         (Command.DISCOVER_RESIDENT_KEYS, None),  # TODO correct input data once this command is implemented
@@ -543,7 +543,8 @@ def test_factory_reset(nkfido2_client: NKFido2Client):
     # Setup. Make sure we are logged in, and we can call commands normally
     helper_login(nkfido2_client, Constants.PIN)
     send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY)
-    read_data_initial = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, {"HASH": b"test"})
+    data_key = {"HASH": sha256(b"test").digest()}
+    read_data_initial = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data_key)
     rk_kh_init = send_and_receive_cbor(nkfido2_client, Command.GENERATE_RESIDENT_KEY)["KEYHANDLE"]
     send_and_receive_cbor(nkfido2_client, Command.READ_RESIDENT_KEY_PUBLIC, {"KEYHANDLE": rk_kh_init})
 
@@ -564,8 +565,7 @@ def test_factory_reset(nkfido2_client: NKFido2Client):
     helper_login(nkfido2_client, Constants.PIN)
     # C. All user data should be cleared
     # C1. Derived keys should be different from the same hash
-    data = {"HASH": b"test"}
-    read_data_after_reset = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data)
+    read_data_after_reset = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data_key)
     assert read_data_after_reset["PUBKEY"] != read_data_initial["PUBKEY"]
 
     # C2. RK should not be available by keyhandle, or listed for the given origin
