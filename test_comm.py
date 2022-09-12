@@ -328,6 +328,29 @@ def test_decrypt(nkfido2_client, send_correct_hmac):
         assert len(read_data_bytes) == 0
 
 
+def test_openpgp_decrypt(nkfido2_client):
+    helper_login(nkfido2_client, Constants.PIN)
+    data = {"HASH": sha256(b"test").digest()}
+    genkey = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data)
+
+    ecdh = ECDH(curve=NIST256p)
+    ecdh.generate_private_key()
+    local_public_key = ecdh.get_public_key()
+    ecdh.load_received_public_key_bytes(genkey["PUBKEY"][1:])
+    secretKey = ecdh.generate_sharedsecret_bytes()
+    ephem_pub_bin = local_public_key.to_string()
+
+    data = {
+        "ECCEKEY": ephem_pub_bin,
+        "KEYHANDLE": genkey["KEYHANDLE"],
+    }
+    helper_view_data(data)
+
+    read_data = send_and_receive(nkfido2_client, Command.OPENPGP_DECRYPT, data)
+    helper_view_data(read_data)
+    assert secretKey == read_data["data"]
+
+
 def test_status(nkfido2_client: NKFido2Client):
     read_data = send_and_receive_cbor(nkfido2_client, Command.STATUS)
     log.debug(read_data)

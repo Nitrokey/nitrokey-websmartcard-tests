@@ -84,6 +84,9 @@ class Command(Enum):
     DISCOVER_RESIDENT_KEYS = 0x18,
     WRITE_RESIDENT_KEY = 0x19,
 
+    OPENPGP_DECRYPT = 0x20,
+    OPENPGP_SIGN = 0x21,
+
     def as_bytes(self):
         return struct.pack("B", self.value[0])
 
