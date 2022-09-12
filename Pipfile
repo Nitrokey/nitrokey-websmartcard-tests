@@ -9,7 +9,6 @@ verify_ssl = true
 pytest = "*"
 pycryptodome = "*"
 cryptography = "*"
-pynitrokey = { version = "<=0.4.0" }
 ecdsa = "*"
 secp256k1 = "*"
 tinyec = "*"
@@ -21,3 +20,7 @@ pytest-reporter-html1 = "*"
 
 [requires]
 python_version = "3.9"
+
+[packages.pynitrokey]
+git = "https://github.com/robin-nitrokey/pynitrokey"
+ref = "pcsc-v0.4.0"
