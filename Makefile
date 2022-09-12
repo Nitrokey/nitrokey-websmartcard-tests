@@ -19,12 +19,12 @@ hardware: U2F
 
 .PHONY: FIDO2
 FIDO2:
-	env REAL_HARDWARE=1 TRANSPORT=FIDO2 pipenv run pytest --hardware test_comm.py
+	env REAL_HARDWARE=1 TRANSPORT=FIDO2 pipenv run pytest --hardware test_comm.py --template=html1/index.html --report=report-fido2.html
+
 
 .PHONY: U2F
 U2F:
-	env REAL_HARDWARE=1 TRANSPORT=U2F pipenv run pytest --hardware test_comm.py
-
+	env REAL_HARDWARE=1 TRANSPORT=U2F pipenv run pytest --hardware test_comm.py --template=html1/index.html --report=report-u2f.html
 
 .PHONY: clean clean-full
 clean:
