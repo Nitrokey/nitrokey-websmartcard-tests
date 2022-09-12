@@ -64,8 +64,8 @@ def nkfido2_client(request) -> NKFido2Client:
         # pynitrokey.fido2.force_udp_backend()
     else:
         print('Selecting hardware')
-        nkfido2_client.find_device()
         nkfido2_client.use_u2f()
+        nkfido2_client.find_device()
     log_data(f'\nExchange selected: {nkfido2_client.exchange}\n')
     return nkfido2_client
 
