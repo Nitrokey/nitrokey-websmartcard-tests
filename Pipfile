@@ -17,6 +17,7 @@ cbor = "*"
 fido2 = "<=0.8"
 pytest-repeat = "*"
 fastecdsa = "*"
+pytest-reporter-html1 = "*"
 
 [requires]
 python_version = "3.9"
