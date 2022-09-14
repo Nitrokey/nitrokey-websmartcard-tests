@@ -86,6 +86,7 @@ class Command(Enum):
 
     OPENPGP_DECRYPT = 0x20,
     OPENPGP_SIGN = 0x21,
+    OPENPGP_INFO = 0x22,
 
     def as_bytes(self):
         return struct.pack("B", self.value[0])

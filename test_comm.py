@@ -350,6 +350,37 @@ def test_openpgp_decrypt(nkfido2_client):
     helper_view_data(read_data)
     assert secretKey == read_data["DATA"]
 
+def test_openpgp_decrypt_default(nkfido2_client):
+    helper_login(nkfido2_client, Constants.PIN)
+    info = send_and_receive_cbor(nkfido2_client, Command.OPENPGP_INFO)
+
+    ecdh = ECDH(curve=NIST256p)
+    ecdh.generate_private_key()
+    local_public_key = ecdh.get_public_key()
+    ecdh.load_received_public_key_bytes(info["ENCR_PUBKEY"])
+    secretKey = ecdh.generate_sharedsecret_bytes()
+    ephem_pub_bin = local_public_key.to_string()
+
+    data = {
+        "ECCEKEY": ephem_pub_bin,
+    }
+    helper_view_data(data)
+
+    read_data = send_and_receive_cbor(nkfido2_client, Command.OPENPGP_DECRYPT, data)
+    helper_view_data(read_data)
+    assert secretKey == read_data["DATA"]
+
+
+def test_openpgp_info(nkfido2_client):
+    helper_login(nkfido2_client, Constants.PIN)
+    info = send_and_receive_cbor(nkfido2_client, Command.OPENPGP_INFO)
+    info2 = send_and_receive_cbor(nkfido2_client, Command.OPENPGP_INFO)
+    info3 = send_and_receive_cbor(nkfido2_client, Command.OPENPGP_INFO)
+    assert info == info2
+    assert info == info3
+    helper_view_data(info)
+
+
 
 def test_status(nkfido2_client: NKFido2Client):
     read_data = send_and_receive_cbor(nkfido2_client, Command.STATUS)
