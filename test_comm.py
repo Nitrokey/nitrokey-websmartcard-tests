@@ -346,9 +346,9 @@ def test_openpgp_decrypt(nkfido2_client):
     }
     helper_view_data(data)
 
-    read_data = send_and_receive(nkfido2_client, Command.OPENPGP_DECRYPT, data)
+    read_data = send_and_receive_cbor(nkfido2_client, Command.OPENPGP_DECRYPT, data)
     helper_view_data(read_data)
-    assert secretKey == read_data["data"]
+    assert secretKey == read_data["DATA"]
 
 
 def test_status(nkfido2_client: NKFido2Client):
