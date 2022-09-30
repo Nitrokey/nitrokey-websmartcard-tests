@@ -438,6 +438,26 @@ def test_resident_keys_write(nkfido2_client: NKFido2Client):
     assert hash_data == read_data["INHASH"]
 
 
+def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client):
+    helper_login(nkfido2_client, Constants.PIN)
+    with open('k1.rsa.ser', 'rb') as f:
+        rsa_data = f.read()
+    data = {"RAW_KEY_DATA": rsa_data, "KEY_TYPE": 1}
+    read_data = send_and_receive_cbor(nkfido2_client, Command.WRITE_RESIDENT_KEY, data)
+    helper_view_dict(read_data)
+    assert check_keys_in_received_dictionary(read_data, ["PUBKEY", "KEYHANDLE"])
+
+    message = b"test_message"
+    hash_data = sha256(message).digest()
+    data = {'HASH': hash_data, "KEYHANDLE": read_data["KEYHANDLE"]}
+    read_data = send_and_receive_cbor(nkfido2_client, Command.SIGN, data)
+
+    helper_view_data(read_data)
+    assert isinstance(read_data, dict)
+    assert check_keys_in_received_dictionary(read_data, ["INHASH", "SIGNATURE"])
+    assert hash_data == read_data["INHASH"]
+
+
 @pytest.mark.parametrize("iter", [1, 10])
 def test_resident_keys_read_public_key(nkfido2_client: NKFido2Client, iter):
     read_data = []
