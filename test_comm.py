@@ -333,6 +333,8 @@ def test_decrypt(nkfido2_client, send_correct_hmac):
 
 def test_decrypt_rsa_rk(nkfido2_client):
     helper_login(nkfido2_client, Constants.PIN)
+
+    # import RSA key
     RSA_KEY_PATH = 'k1.rsa.ser'
     with open(RSA_KEY_PATH, 'rb') as f:
         rsa_data = f.read()
@@ -354,8 +356,6 @@ def test_decrypt_rsa_rk(nkfido2_client):
     data = {
         'DATA': ciphertext,
         "KEYHANDLE": keyhandle,
-        "HMAC": b"",
-        "ECCEKEY": b"",
     }
 
     read_data = send_and_receive_cbor(nkfido2_client, Command.DECRYPT, data)
@@ -475,6 +475,8 @@ def test_resident_keys_write(nkfido2_client: NKFido2Client):
 
 def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client):
     helper_login(nkfido2_client, Constants.PIN)
+
+    # import RSA key
     RSA_KEY_PATH = 'k1.rsa.ser'
     with open(RSA_KEY_PATH, 'rb') as f:
         rsa_data = f.read()
@@ -484,6 +486,7 @@ def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client):
     assert check_keys_in_received_dictionary(read_data, ["PUBKEY", "KEYHANDLE"])
     public_key_webcrypt = read_data["PUBKEY"]
 
+    # sign a message with it
     message = b"test_message"
     hash_data = sha256(message).digest()
     keyhandle_written_resident_key = read_data["KEYHANDLE"]
@@ -508,7 +511,7 @@ def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client):
         hashes.SHA256()
     )
 
-    # public key generation check
+    # public key generation result check
     public_key = private_key.public_key()
     public_key_der = public_key.public_bytes(
         encoding=serialization.Encoding.DER,
