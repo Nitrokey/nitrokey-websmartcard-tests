@@ -331,6 +331,38 @@ def test_decrypt(nkfido2_client, send_correct_hmac):
         assert len(read_data_bytes) == 0
 
 
+def test_decrypt_rsa_rk(nkfido2_client):
+    helper_login(nkfido2_client, Constants.PIN)
+    RSA_KEY_PATH = 'k1.rsa.ser'
+    with open(RSA_KEY_PATH, 'rb') as f:
+        rsa_data = f.read()
+    data = {"RAW_KEY_DATA": rsa_data, "KEY_TYPE": 1}
+    read_data = send_and_receive_cbor(nkfido2_client, Command.WRITE_RESIDENT_KEY, data)
+    helper_view_dict(read_data)
+    assert check_keys_in_received_dictionary(read_data, ["PUBKEY", "KEYHANDLE"])
+    keyhandle = read_data["KEYHANDLE"]
+
+    # encrypt
+    plaintext = b"test_message"
+    with open(RSA_KEY_PATH, "rb") as key_file:
+        private_key = serialization.load_der_private_key(
+            key_file.read(), None)
+    public_key = private_key.public_key()
+    ciphertext = public_key.encrypt(plaintext=plaintext, padding=padding.PKCS1v15())
+
+    # decrypt
+    data = {
+        'DATA': ciphertext,
+        "KEYHANDLE": keyhandle,
+        "HMAC": b"",
+        "ECCEKEY": b"",
+    }
+
+    read_data = send_and_receive_cbor(nkfido2_client, Command.DECRYPT, data)
+    assert check_keys_in_received_dictionary(read_data, ["DATA"])
+    assert read_data["DATA"] == plaintext
+
+
 def test_status(nkfido2_client: NKFido2Client):
     read_data = send_and_receive_cbor(nkfido2_client, Command.STATUS)
     log.debug(read_data)
