@@ -28,6 +28,9 @@ from hashlib import sha256
 import ecdsa
 import pytest
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
 from Crypto.Cipher import AES
 from ecdsa import NIST256p
 from ecdsa.ecdh import ECDH
@@ -440,12 +443,15 @@ def test_resident_keys_write(nkfido2_client: NKFido2Client):
 
 def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client):
     helper_login(nkfido2_client, Constants.PIN)
-    with open('k1.rsa.ser', 'rb') as f:
+    RSA_KEY_PATH = 'k1.rsa.ser'
+    with open(RSA_KEY_PATH, 'rb') as f:
         rsa_data = f.read()
     data = {"RAW_KEY_DATA": rsa_data, "KEY_TYPE": 1}
     read_data = send_and_receive_cbor(nkfido2_client, Command.WRITE_RESIDENT_KEY, data)
     helper_view_dict(read_data)
     assert check_keys_in_received_dictionary(read_data, ["PUBKEY", "KEYHANDLE"])
+    # TODO verify pubkey length
+    public_key_webcrypt = read_data["PUBKEY"]
 
     message = b"test_message"
     hash_data = sha256(message).digest()
@@ -456,7 +462,25 @@ def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client):
     assert isinstance(read_data, dict)
     assert check_keys_in_received_dictionary(read_data, ["INHASH", "SIGNATURE"])
     assert hash_data == read_data["INHASH"]
+    rsa_signature = read_data["SIGNATURE"]
+    with open(RSA_KEY_PATH, "rb") as key_file:
+        private_key = serialization.load_der_private_key(
+            key_file.read(), None)
+    public_key = private_key.public_key()
+    public_key.verify(
+        rsa_signature,
+        message,
+        padding.PKCS1v15(),
+        hashes.SHA256()
+    )
 
+    # TODO verify the returned public key format
+    # public_key = private_key.public_key()
+    # public_key_der = public_key.public_bytes(
+    #     encoding=serialization.Encoding.DER,
+    #     format=serialization.PublicFormat.OpenSSH
+    # )
+    # assert public_key_der == public_key_webcrypt
 
 @pytest.mark.parametrize("iter", [1, 10])
 def test_resident_keys_read_public_key(nkfido2_client: NKFido2Client, iter):
