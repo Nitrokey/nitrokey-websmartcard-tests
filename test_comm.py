@@ -28,6 +28,9 @@ from hashlib import sha256
 import ecdsa
 import pytest
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
 from Crypto.Cipher import AES
 from ecdsa import NIST256p
 from ecdsa.ecdh import ECDH
@@ -328,6 +331,38 @@ def test_decrypt(nkfido2_client, send_correct_hmac):
         assert len(read_data_bytes) == 0
 
 
+def test_decrypt_rsa_rk(nkfido2_client):
+    helper_login(nkfido2_client, Constants.PIN)
+
+    # import RSA key
+    RSA_KEY_PATH = 'k1.rsa.ser'
+    with open(RSA_KEY_PATH, 'rb') as f:
+        rsa_data = f.read()
+    data = {"RAW_KEY_DATA": rsa_data, "KEY_TYPE": 1}
+    read_data = send_and_receive_cbor(nkfido2_client, Command.WRITE_RESIDENT_KEY, data)
+    helper_view_dict(read_data)
+    assert check_keys_in_received_dictionary(read_data, ["PUBKEY", "KEYHANDLE"])
+    keyhandle = read_data["KEYHANDLE"]
+
+    # encrypt
+    plaintext = b"test_message"
+    with open(RSA_KEY_PATH, "rb") as key_file:
+        private_key = serialization.load_der_private_key(
+            key_file.read(), None)
+    public_key = private_key.public_key()
+    ciphertext = public_key.encrypt(plaintext=plaintext, padding=padding.PKCS1v15())
+
+    # decrypt
+    data = {
+        'DATA': ciphertext,
+        "KEYHANDLE": keyhandle,
+    }
+
+    read_data = send_and_receive_cbor(nkfido2_client, Command.DECRYPT, data)
+    assert check_keys_in_received_dictionary(read_data, ["DATA"])
+    assert read_data["DATA"] == plaintext
+
+
 def test_status(nkfido2_client: NKFido2Client):
     read_data = send_and_receive_cbor(nkfido2_client, Command.STATUS)
     log.debug(read_data)
@@ -436,6 +471,58 @@ def test_resident_keys_write(nkfido2_client: NKFido2Client):
     assert isinstance(read_data, dict)
     assert check_keys_in_received_dictionary(read_data, ["INHASH", "SIGNATURE"])
     assert hash_data == read_data["INHASH"]
+
+
+def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client):
+    helper_login(nkfido2_client, Constants.PIN)
+
+    # import RSA key
+    RSA_KEY_PATH = 'k1.rsa.ser'
+    with open(RSA_KEY_PATH, 'rb') as f:
+        rsa_data = f.read()
+    data = {"RAW_KEY_DATA": rsa_data, "KEY_TYPE": 1}
+    read_data = send_and_receive_cbor(nkfido2_client, Command.WRITE_RESIDENT_KEY, data)
+    helper_view_dict(read_data)
+    assert check_keys_in_received_dictionary(read_data, ["PUBKEY", "KEYHANDLE"])
+    public_key_webcrypt = read_data["PUBKEY"]
+
+    # sign a message with it
+    message = b"test_message"
+    hash_data = sha256(message).digest()
+    keyhandle_written_resident_key = read_data["KEYHANDLE"]
+    data = {'HASH': hash_data, "KEYHANDLE": keyhandle_written_resident_key}
+    read_data = send_and_receive_cbor(nkfido2_client, Command.SIGN, data)
+
+    helper_view_data(read_data)
+    assert isinstance(read_data, dict)
+    assert check_keys_in_received_dictionary(read_data, ["INHASH", "SIGNATURE"])
+    assert hash_data == read_data["INHASH"]
+    rsa_signature = read_data["SIGNATURE"]
+
+    # validate signature
+    with open(RSA_KEY_PATH, "rb") as key_file:
+        private_key = serialization.load_der_private_key(
+            key_file.read(), None)
+    public_key = private_key.public_key()
+    public_key.verify(
+        rsa_signature,
+        message,
+        padding.PKCS1v15(),
+        hashes.SHA256()
+    )
+
+    # public key generation result check
+    public_key = private_key.public_key()
+    public_key_der = public_key.public_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PublicFormat.PKCS1
+    )
+    assert public_key_der.hex() == public_key_webcrypt.hex()
+
+    # read public key
+    data = {"KEYHANDLE": keyhandle_written_resident_key}
+    read_public_key = send_and_receive_cbor(nkfido2_client, Command.READ_RESIDENT_KEY_PUBLIC, data)["PUBKEY"]
+    assert read_public_key.hex() == public_key_der.hex()
 
 
 @pytest.mark.parametrize("iter", [1, 10])
