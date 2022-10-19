@@ -331,6 +331,7 @@ def test_decrypt(nkfido2_client, send_correct_hmac):
         assert len(read_data_bytes) == 0
 
 
+@pytest.mark.xfail
 def test_decrypt_rsa_rk(nkfido2_client):
     helper_login(nkfido2_client, Constants.PIN)
 
@@ -472,7 +473,7 @@ def test_resident_keys_write(nkfido2_client: NKFido2Client):
     assert check_keys_in_received_dictionary(read_data, ["INHASH", "SIGNATURE"])
     assert hash_data == read_data["INHASH"]
 
-
+@pytest.mark.xfail
 def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client):
     helper_login(nkfido2_client, Constants.PIN)
 
