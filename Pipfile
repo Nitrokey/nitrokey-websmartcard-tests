@@ -17,6 +17,7 @@ fido2 = "<=0.8"
 pytest-repeat = "*"
 fastecdsa = "*"
 pytest-reporter-html1 = "*"
+pyusb = "*"
 
 [requires]
 python_version = "3.9"

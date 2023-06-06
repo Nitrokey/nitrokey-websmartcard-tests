@@ -2,17 +2,13 @@ all: CI
 
 .PHONY: pipenv setup
 
-setup: pipenv
-
-pipenv: Pipfile.lock
-
-Pipfile.lock:
+setup:
 	pipenv install
 
 .PHONY: CI
 CI: pipenv
 	# Assuming UDP simulation is running
-	pipenv run pytest test_comm.py -svx --template=html1/index.html --report=report-udp_simulation.html
+	pipenv run pytest test_comm.py -sv --template=html1/index.html --report=report-udp_simulation.html
 
 .PHONY: hardware
 hardware: U2F
