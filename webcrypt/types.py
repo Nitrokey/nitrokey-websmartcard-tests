@@ -59,51 +59,58 @@ class CmdTrans:
 
 
 class Command(Enum):
-    STATUS = 0x00,
-    TEST_PING = 0x01,
-    TEST_CLEAR = 0x02,
-    TEST_REBOOT = 0x03,
-    LOGIN = 0x04,
-    LOGOUT = 0x05,
-    FACTORY_RESET = 0x06,
+    STATUS = 0x00
+    TEST_PING = 0x01
+    TEST_CLEAR = 0x02
+    TEST_REBOOT = 0x03
+    LOGIN = 0x04
+    LOGOUT = 0x05
+    FACTORY_RESET = 0x06
     # deprecated
-    PIN_ATTEMPTS = 0x07,
-    SET_CONFIGURATION = 0x08,
-    GET_CONFIGURATION = 0x09,
-    SET_PIN = 0x0A,
-    CHANGE_PIN = 0x0B,
+    PIN_ATTEMPTS = 0x07
+    SET_CONFIGURATION = 0x08
+    GET_CONFIGURATION = 0x09
+    SET_PIN = 0x0A
+    CHANGE_PIN = 0x0B
 
-    INITIALIZE_SEED = 0x10,
-    RESTORE_FROM_SEED = 0x11,
-    GENERATE_KEY = 0x12,
-    SIGN = 0x13,
-    DECRYPT = 0x14,
-    GENERATE_KEY_FROM_DATA = 0x15,
-    GENERATE_RESIDENT_KEY = 0x16,
-    READ_RESIDENT_KEY_PUBLIC = 0x17,
-    DISCOVER_RESIDENT_KEYS = 0x18,
-    WRITE_RESIDENT_KEY = 0x19,
+    INITIALIZE_SEED = 0x10
+    RESTORE_FROM_SEED = 0x11
+    GENERATE_KEY = 0x12
+    SIGN = 0x13
+    DECRYPT = 0x14
+    GENERATE_KEY_FROM_DATA = 0x15
+    GENERATE_RESIDENT_KEY = 0x16
+    READ_RESIDENT_KEY_PUBLIC = 0x17
+    DISCOVER_RESIDENT_KEYS = 0x18
+    WRITE_RESIDENT_KEY = 0x19
 
     def as_bytes(self):
-        return struct.pack("B", self.value[0])
+        return struct.pack("B", self.value)
 
 
 class ExecError(Enum):
-    SUCCESS = 0x00,
-    CTAP2_ERR_CBOR_PARSING = 0x10,
-    REQ_AUTH = 0xF0,
-    INVALID_PIN = 0xF1,
-    ERR_NOT_ALLOWED = 0xF2,
-    ERR_BAD_FORMAT = 0xF3,
-    ERR_USER_NOT_PRESENT = 0xF4,
-    ERR_FAILED_LOADING_DATA = 0xF5,
-    ERR_INVALID_CHECKSUM = 0xF6,
-    ERR_ALREADY_IN_DATABASE = 0xF7,
-    ERR_NOT_FOUND = 0xF8,
-    ERR_ASSERT_FAILED = 0xF9,
-    ERR_INTERNAL_ERROR = 0xFA,
-    ERR_MEMORY_FULL = 0xFB,
-    ERR_NOT_IMPLEMENTED = 0xFC,
-    ERR_BAD_ORIGIN = 0xFD,
-    ERR_NOT_SET = 0xFE,
-    ERR_INVALID_COMMAND = 0xFF,
+    SUCCESS = 0x00
+    CTAP2_ERR_CBOR_PARSING = 0x10
+    REQ_AUTH = 0xF0
+    INVALID_PIN = 0xF1
+    ERR_NOT_ALLOWED = 0xF2
+    ERR_BAD_FORMAT = 0xF3
+    ERR_USER_NOT_PRESENT = 0xF4
+    ERR_FAILED_LOADING_DATA = 0xF5
+    ERR_INVALID_CHECKSUM = 0xF6
+    ERR_ALREADY_IN_DATABASE = 0xF7
+    ERR_NOT_FOUND = 0xF8
+    ERR_ASSERT_FAILED = 0xF9
+    ERR_INTERNAL_ERROR = 0xFA
+    ERR_MEMORY_FULL = 0xFB
+    ERR_NOT_IMPLEMENTED = 0xFC
+    ERR_BAD_ORIGIN = 0xFD
+    ERR_NOT_SET = 0xFE
+    ERR_INVALID_COMMAND = 0xFF
+
+    @classmethod
+    def from_byte(cls, b:bytes) -> 'ExecError':
+        for c in ExecError:
+            if c.value == b:
+                return c
+        raise ValueError(f"Invalid attribute byte {b}")

@@ -73,7 +73,7 @@ def test_ping(nkfido2_client: NKFido2Client, test_data: dict):
     """Sends arbitrary dict structure over the wire, and receives the same data"""
     assert device_send(nkfido2_client, test_data, Command.TEST_PING)
     commandID, read_data_bytes = device_receive(nkfido2_client)
-    assert commandID == Command.TEST_PING.value[0]
+    assert commandID == Command.TEST_PING.value
     compare_cbor_dict(read_data_bytes, test_data)
 
 

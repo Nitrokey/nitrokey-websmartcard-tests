@@ -82,8 +82,8 @@ def send_and_receive(nkfido2_client: NKFido2Client, command: Command, data=None,
     MAX_CONFIRMATION_TIME = 30
     while time() - start < MAX_CONFIRMATION_TIME:
         execution_success, err_codes = device_send(nkfido2_client, data, command)
-        last_err = err_codes[-1]
-        if last_err != ExecError.ERR_USER_NOT_PRESENT.value[0]:
+        last_err = ExecError.from_byte(err_codes[-1])
+        if last_err != ExecError.ERR_USER_NOT_PRESENT:
             break
         my_print(f'Please confirm the action for command: {command}')
         sys.stdout.flush()
@@ -91,14 +91,15 @@ def send_and_receive(nkfido2_client: NKFido2Client, command: Command, data=None,
         sleep(1)
 
     if check:
-        assert execution_success == expected_success
+        if expected_success:
+            assert last_err == ExecError.SUCCESS
         if expected_error:
-            assert last_err == expected_error.value[0]
+            assert last_err == expected_error
 
     if not execution_success:
         return execution_success, b''
     command_received, read_data_bytes = device_receive(nkfido2_client)
-    assert command_received == command.value[0]
+    assert command_received == command.value
     return execution_success, read_data_bytes
 
 
@@ -266,10 +267,8 @@ def device_send(nkfido2_client: NKFido2Client, data: dict, command: Command, app
         err_code = s
         if err_code != 0:
             success = False
-        for c in ExecError:
-            if c.value[0] == err_code:
-                my_print(f"Result {command}: {c}")
-                break
+        my_print(f"Result {command}: {ExecError.from_byte(err_code)}")
+
     my_print(f"Send results: {results} {success}")
     return success, results
 
