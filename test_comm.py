@@ -406,6 +406,8 @@ def test_initialize_simple2(nkfido2_client: NKFido2Client):
 
 
 def test_initialize(nkfido2_client: NKFido2Client):
+    """Test how the derived keys are changing with the calls of Master Seed initialization.
+    Requires GENERATE_KEY_FROM_DATA working."""
     data = {"HASH": sha256(b"test").digest()}
     key1 = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data)
     key1b = send_and_receive_cbor(nkfido2_client, Command.GENERATE_KEY_FROM_DATA, data)
@@ -434,6 +436,10 @@ def test_restore_simple(nkfido2_client: NKFido2Client):
     (b'0' * 32, b'0' * 8),  # reset all to zero again
 ])
 def test_restore(nkfido2_client: NKFido2Client, test_input):
+    """
+    Test restoring the Master Seed, used for generating the derived key
+    Requires GENERATE_KEY_FROM_DATA working.
+    """
     master, salt = test_input
     data_key = {"HASH": sha256(b"test").digest()}
     data = {"MASTER": master, "SALT": salt}

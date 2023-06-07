@@ -1,12 +1,12 @@
 all: CI
 
-.PHONY: pipenv setup
+.PHONY: setup
 
 setup:
 	pipenv install
 
 .PHONY: CI
-CI: pipenv
+CI:
 	# Assuming UDP simulation is running
 	pipenv run pytest test_comm.py -sv --template=html1/index.html --report=report-udp_simulation.html
 
