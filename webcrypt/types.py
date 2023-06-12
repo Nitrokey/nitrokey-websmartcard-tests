@@ -91,6 +91,7 @@ class Command(Enum):
 class ExecError(Enum):
     SUCCESS = 0x00
     CTAP2_ERR_CBOR_PARSING = 0x10
+    TooLongRequest = 0xE0
     REQ_AUTH = 0xF0
     INVALID_PIN = 0xF1
     ERR_NOT_ALLOWED = 0xF2
@@ -113,4 +114,4 @@ class ExecError(Enum):
         for c in ExecError:
             if c.value == b:
                 return c
-        raise ValueError(f"Invalid attribute byte {b}")
+        raise ValueError(f"Invalid attribute byte {b} / {b:02x}")

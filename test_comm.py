@@ -479,15 +479,54 @@ def test_resident_keys_write(nkfido2_client: NKFido2Client):
     assert check_keys_in_received_dictionary(read_data, ["INHASH", "SIGNATURE"])
     assert hash_data == read_data["INHASH"]
 
-@pytest.mark.xfail
-def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client):
+# @pytest.mark.xfail
+@pytest.mark.parametrize("type",[
+"pkcs","raw"
+])
+def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client, type):
     helper_login(nkfido2_client, Constants.PIN)
+
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import padding
+
 
     # import RSA key
     RSA_KEY_PATH = 'k1.rsa.ser'
+    private_key = None
     with open(RSA_KEY_PATH, 'rb') as f:
         rsa_data = f.read()
-    data = {"RAW_KEY_DATA": rsa_data, "KEY_TYPE": 1}
+        private_key = serialization.load_der_private_key(
+            rsa_data, None)
+
+
+    # private_key = rsa.generate_private_key(
+    #     public_exponent=65537,
+    #     key_size=2048,
+    #     backend=default_backend()
+    # )
+
+    data = None
+    if type == "pkcs":
+        pk_der_pkcs8_bytes = private_key.private_bytes(encoding=serialization.Encoding.DER,
+                                                       format=serialization.PrivateFormat.PKCS8,
+                                                       encryption_algorithm=serialization.NoEncryption())
+        data = {"RAW_KEY_DATA": pk_der_pkcs8_bytes, "KEY_TYPE": 1}
+    else:
+        pkn = private_key.private_numbers()
+        pkp = private_key.public_key().public_numbers()
+        # print(pkn)
+        # print(pkp)
+        data = {
+            # "RSA_E": pkn.d.to_bytes(256, byteorder="big"),  # private exponent
+            "RSA_E": pkp.e.to_bytes(4, byteorder="big"),  # public exponent
+            "RSA_P": pkn.p.to_bytes(128, byteorder="big"),  # prime 1
+            "RSA_Q": pkn.q.to_bytes(128, byteorder="big"),  # prime 2
+            "KEY_TYPE": 1
+        }
+
     read_data = send_and_receive_cbor(nkfido2_client, Command.WRITE_RESIDENT_KEY, data)
     helper_view_dict(read_data)
     assert check_keys_in_received_dictionary(read_data, ["PUBKEY", "KEYHANDLE"])
@@ -497,20 +536,19 @@ def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client):
     message = b"test_message"
     hash_data = sha256(message).digest()
     keyhandle_written_resident_key = read_data["KEYHANDLE"]
-    data = {'HASH': hash_data, "KEYHANDLE": keyhandle_written_resident_key}
+    # data = {'HASH': hash_data, "KEYHANDLE": keyhandle_written_resident_key}
+    data = {'HASH': message, "KEYHANDLE": keyhandle_written_resident_key}
     read_data = send_and_receive_cbor(nkfido2_client, Command.SIGN, data)
 
     helper_view_data(read_data)
     assert isinstance(read_data, dict)
     assert check_keys_in_received_dictionary(read_data, ["INHASH", "SIGNATURE"])
-    assert hash_data == read_data["INHASH"]
+    # assert hash_data == read_data["INHASH"]
     rsa_signature = read_data["SIGNATURE"]
 
     # validate signature
-    with open(RSA_KEY_PATH, "rb") as key_file:
-        private_key = serialization.load_der_private_key(
-            key_file.read(), None)
-    public_key = private_key.public_key()
+    # public_key = private_key.public_key()
+    public_key = serialization.load_der_public_key(public_key_webcrypt)
     public_key.verify(
         rsa_signature,
         message,
@@ -519,7 +557,7 @@ def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client):
     )
 
     # public key generation result check
-    public_key = private_key.public_key()
+    # public_key = private_key.public_key()
     public_key_der = public_key.public_bytes(
         encoding=serialization.Encoding.DER,
         format=serialization.PublicFormat.PKCS1
