@@ -541,6 +541,15 @@ def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client, import_mode):
 
     # Prefix hash with pkcs#1 digest info
     # https://www.rfc-editor.org/rfc/rfc8017#appendix-A.2.4, page 47
+    #          SHA-1:   (0x)30 21 30 09 06 05 2b 0e 03 02 1a 05 00 04 14 || H.
+    #          SHA-224:  (0x)30 2d 30 0d 06 09 60 86 48 01 65 03 04 02 04
+    #                       05 00 04 1c || H.
+    #          SHA-256: (0x)30 31 30 0d 06 09 60 86 48 01 65 03 04 02 01 05 00
+    #                       04 20 || H.
+    #          SHA-384: (0x)30 41 30 0d 06 09 60 86 48 01 65 03 04 02 02 05 00
+    #                       04 30 || H.
+    #          SHA-512: (0x)30 51 30 0d 06 09 60 86 48 01 65 03 04 02 03 05 00
+    #                       04 40 || H.
     OID_DER_SHA256 = b'30 31 30 0d 06 09 60 86 48 01 65 03 04 02 01 05 00 04 20'.replace(b' ', b'')
     digestinfo = binascii.a2b_hex(OID_DER_SHA256) + hash_data
 
