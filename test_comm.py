@@ -20,6 +20,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 #
+import binascii
 import functools
 import hmac
 import struct
@@ -32,6 +33,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from Crypto.Cipher import AES
+from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
+from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
 from ecdsa import NIST256p
 from ecdsa.ecdh import ECDH
 from pynitrokey.fido2.client import NKFido2Client as NKFido2Client
@@ -480,18 +483,16 @@ def test_resident_keys_write(nkfido2_client: NKFido2Client):
     assert hash_data == read_data["INHASH"]
 
 # @pytest.mark.xfail
-@pytest.mark.parametrize("type",[
-"pkcs","raw"
+@pytest.mark.parametrize("import_mode",[
+    "pkcs", "raw"
 ])
-def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client, type):
+def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client, import_mode):
+    send_and_receive(nkfido2_client, Command.FACTORY_RESET)
     helper_login(nkfido2_client, Constants.PIN)
 
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric import padding
-
 
     # import RSA key
     RSA_KEY_PATH = 'k1.rsa.ser'
@@ -501,15 +502,20 @@ def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client, type):
         private_key = serialization.load_der_private_key(
             rsa_data, None)
 
-
+    # from cryptography.hazmat.backends import default_backend
+    # from cryptography.hazmat.primitives.asymmetric import rsa
     # private_key = rsa.generate_private_key(
     #     public_exponent=65537,
     #     key_size=2048,
     #     backend=default_backend()
     # )
 
+    def int_to_bytes(x: int) -> bytes:
+        from math import ceil
+        return x.to_bytes(ceil(x.bit_length()/8), byteorder="big")
+
     data = None
-    if type == "pkcs":
+    if import_mode == "pkcs":
         pk_der_pkcs8_bytes = private_key.private_bytes(encoding=serialization.Encoding.DER,
                                                        format=serialization.PrivateFormat.PKCS8,
                                                        encryption_algorithm=serialization.NoEncryption())
@@ -517,57 +523,63 @@ def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client, type):
     else:
         pkn = private_key.private_numbers()
         pkp = private_key.public_key().public_numbers()
-        # print(pkn)
-        # print(pkp)
         data = {
-            # "RSA_E": pkn.d.to_bytes(256, byteorder="big"),  # private exponent
-            "RSA_E": pkp.e.to_bytes(4, byteorder="big"),  # public exponent
-            "RSA_P": pkn.p.to_bytes(128, byteorder="big"),  # prime 1
-            "RSA_Q": pkn.q.to_bytes(128, byteorder="big"),  # prime 2
+            "RSA_E": int_to_bytes(pkp.e),  # public exponent
+            "RSA_P": int_to_bytes(pkn.p),  # prime 1
+            "RSA_Q": int_to_bytes(pkn.q),  # prime 2
             "KEY_TYPE": 1
         }
 
     read_data = send_and_receive_cbor(nkfido2_client, Command.WRITE_RESIDENT_KEY, data)
     helper_view_dict(read_data)
     assert check_keys_in_received_dictionary(read_data, ["PUBKEY", "KEYHANDLE"])
-    public_key_webcrypt = read_data["PUBKEY"]
+    public_key_webcrypt_der_pkcs8 = read_data["PUBKEY"]
 
     # sign a message with it
     message = b"test_message"
     hash_data = sha256(message).digest()
+
+    # Prefix hash with pkcs#1 digest info
+    # https://www.rfc-editor.org/rfc/rfc8017#appendix-A.2.4, page 47
+    OID_DER_SHA256 = b'30 31 30 0d 06 09 60 86 48 01 65 03 04 02 01 05 00 04 20'.replace(b' ', b'')
+    digestinfo = binascii.a2b_hex(OID_DER_SHA256) + hash_data
+
     keyhandle_written_resident_key = read_data["KEYHANDLE"]
-    # data = {'HASH': hash_data, "KEYHANDLE": keyhandle_written_resident_key}
-    data = {'HASH': message, "KEYHANDLE": keyhandle_written_resident_key}
+    data = {'HASH': digestinfo, "KEYHANDLE": keyhandle_written_resident_key}
     read_data = send_and_receive_cbor(nkfido2_client, Command.SIGN, data)
 
     helper_view_data(read_data)
     assert isinstance(read_data, dict)
     assert check_keys_in_received_dictionary(read_data, ["INHASH", "SIGNATURE"])
-    # assert hash_data == read_data["INHASH"]
+    assert digestinfo == read_data["INHASH"]
     rsa_signature = read_data["SIGNATURE"]
 
     # validate signature
-    # public_key = private_key.public_key()
-    public_key = serialization.load_der_public_key(public_key_webcrypt)
-    public_key.verify(
-        rsa_signature,
-        message,
-        padding.PKCS1v15(),
-        hashes.SHA256()
-    )
-
-    # public key generation result check
-    # public_key = private_key.public_key()
-    public_key_der = public_key.public_bytes(
+    public_key_loaded = private_key.public_key()
+    public_key_loaded_der = public_key_loaded.public_bytes(
         encoding=serialization.Encoding.DER,
         format=serialization.PublicFormat.PKCS1
     )
-    assert public_key_der.hex() == public_key_webcrypt.hex()
+
+    for key in [public_key_webcrypt_der_pkcs8, public_key_loaded_der]:
+        public_key = serialization.load_der_public_key(key)
+        public_key.verify(
+            rsa_signature,
+            message,
+            padding.PKCS1v15(),
+            # hashes.SHA256()  # or utils.Prehashed(hashes.SHA256())
+            Prehashed(hashes.SHA256())
+        )
+
+    # public_key = serialization.load_der_public_key(public_key_webcrypt_der_pkcs8)
+    # public key generation result check
+    # public_key = private_key.public_key()
+    # assert public_key_loaded_der.hex() == public_key_webcrypt_der_pkcs8.hex()
 
     # read public key
     data = {"KEYHANDLE": keyhandle_written_resident_key}
     read_public_key = send_and_receive_cbor(nkfido2_client, Command.READ_RESIDENT_KEY_PUBLIC, data)["PUBKEY"]
-    assert read_public_key.hex() == public_key_der.hex()
+    assert read_public_key.hex() == public_key_webcrypt_der_pkcs8.hex()
 
 
 @pytest.mark.parametrize("iter", [1, 10])
