@@ -484,7 +484,8 @@ def test_resident_keys_write(nkfido2_client: NKFido2Client):
 
 # @pytest.mark.xfail
 @pytest.mark.parametrize("import_mode",[
-    "pkcs", "raw"
+    # "pkcs",  # not supported in Trussed
+    "raw"
 ])
 def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client, import_mode):
     send_and_receive(nkfido2_client, Command.FACTORY_RESET)
@@ -574,7 +575,8 @@ def test_resident_keys_write_rsa(nkfido2_client: NKFido2Client, import_mode):
         public_key = serialization.load_der_public_key(key)
         public_key.verify(
             rsa_signature,
-            message,
+            # message,
+            hash_data,
             padding.PKCS1v15(),
             # hashes.SHA256()  # or utils.Prehashed(hashes.SHA256())
             Prehashed(hashes.SHA256())
