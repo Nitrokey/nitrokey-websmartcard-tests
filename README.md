@@ -12,6 +12,8 @@ To install Python dependencies for this project only it suffices to call:
 pipenv install
 ```
 
+Note: needs https://pypi.org/project/exceptiongroup/ for Python older than 3.11
+
 ### Building simulation
 Please refer to the main project readme for details:
 - https://github.com/Nitrokey/nitrokey-webcrypt-rust#running-udp-simulation
